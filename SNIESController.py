@@ -1,56 +1,92 @@
-import csv
-from typing import Dict, List, Optional
+from typing import Dict, List
+from gestores import GestorCsv, GestorJson, GestorXlsx
+from programaAcademico import ProgramaAcademico
+from Settings import Settings
+
 
 class SNIESController:
     def __init__(self):
         self.programas_academicos: Dict[int, ProgramaAcademico] = {}
-        self.gestor_csv = GestorCsv()
+        self.gestor_xlsx = GestorXlsx()
         self.etiquetas_columnas: List[str] = []
-        self.ruta_programas_csv = Settings.PROGRAMAS_FILTRAR_FILE_PATH
         self.ruta_admitidos = Settings.ADMITIDOS_FILE_PATH
         self.ruta_graduados = Settings.GRADUADOS_FILE_PATH
         self.ruta_inscritos = Settings.INSCRITOS_FILE_PATH
         self.ruta_matriculados = Settings.MATRICULADOS_FILE_PATH
-        self.ruta_matriculados_primer_semestre = Settings.MATRICULADOS_PRIMER_SEMESTRE_FILE_PATH
+        self.ruta_matriculados_primer_curso = Settings.MATRICULADOS_PRIMER_CURSO_FILE_PATH
         self.ruta_output = Settings.OUTPUTS_PATH
 
-    def __del__(self):
-        for programa in self.programas_academicos.values():
-            del programa
-
     def procesar_datos_csv(self, ano1: str, ano2: str):
-        codigos_snies = self.gestor_csv.leer_programas_csv(self.ruta_programas_csv)
-        programas_academicos_vector = self.gestor_csv.leer_archivo_primera(self.ruta_admitidos, ano1, codigos_snies)
+        # Leer códigos SNIES desde el archivo de programas
+        codigos_snies = self.gestor_xlsx.leer_codigos_snies(self.ruta_admitidos + "2020.xlsx")
+
+        # Leer datos del archivo admitidos
+        programas_academicos_vector = self.gestor_xlsx.leer_archivo_primer(self.ruta_admitidos + ano1 + ".xlsx",
+                                                                           codigos_snies)
+
         self.etiquetas_columnas = programas_academicos_vector[0]
         columnas_map = {col: idx for idx, col in enumerate(self.etiquetas_columnas)}
 
+        # Procesar cada programa y consolidar datos
         for i in range(1, len(programas_academicos_vector), Settings.DATOS_ACADEM_DEMOGRAF):
-            programa_academico = ProgramaAcademico()
-            # Fill in the attributes from the columns in the CSV
-            programa_academico.set_codigo_de_la_institucion(
-                int(programas_academicos_vector[i][columnas_map["CÓDIGO DE LA INSTITUCIÓN"]]))
-            # (continue setting other fields similarly...)
+            codigo_snies = int(programas_academicos_vector[i][columnas_map["CÓDIGO SNIES DEL PROGRAMA"]])
 
-            consolidado = [Consolidado() for _ in range(Settings.DATOS_ACADEM_DEMOGRAF)]
-            for m in range(Settings.DATOS_ACADEM_DEMOGRAF):
-                consolidado[m].set_id_sexo(int(programas_academicos_vector[i + m][columnas_map["ID SEXO"]]))
-                # (continue setting other fields similarly...)
-                programa_academico.set_consolidado(consolidado[m], m)
+            # Crear o actualizar el programa académico
 
-            self.programas_academicos[programa_academico.get_codigo_snies_del_programa()] = programa_academico
+            if codigo_snies not in self.programas_academicos:
+                programa_academico = ProgramaAcademico(
+                    codigo_de_la_institucion=int(
+                        programas_academicos_vector[i][columnas_map["CÓDIGO DE LA INSTITUCIÓN"]]),
+                    programa_academico=programas_academicos_vector[i][columnas_map["PROGRAMA ACADÉMICO"]],
+                    id_nivel_formacion=int(programas_academicos_vector[i][columnas_map["ID NIVEL DE FORMACIÓN"]]),
+                    nivel_formacion=programas_academicos_vector[i][columnas_map["NIVEL DE FORMACIÓN"]],
+                    metodologia=programas_academicos_vector[i][columnas_map["METODOLOGÍA"]]
+                    # FALTA ANADIR EL RESTO DE DATOS
+                )
+                self.programas_academicos[codigo_snies] = programa_academico
+            else:
+                programa_academico = self.programas_academicos[codigo_snies]
 
-        # Repeat this structure for the remaining data sources (ruta_admitidos, ruta_graduados, etc.)
-        # Fill additional fields based on Settings constants
+            # Buscar y añadir los datos relacionados con "ID SEXO", "ADMITIDOS", etc.
+            datos_consolidar = ["INSCRITOS", "ADMITIDOS", "MATRICULADOS",
+                               "PRIMER CURSO", "GRADUADOS"]
+            rutas_archivos = [
+                self.ruta_admitidos + ano1 + ".xlsx", self.ruta_admitidos + ano2 + ".xlsx",
+                self.ruta_inscritos + ano1 + ".xlsx", self.ruta_inscritos + ano2 + ".xlsx",
+                self.ruta_graduados + ano1 + ".xlsx", self.ruta_graduados + ano2 + ".xlsx",
+                self.ruta_matriculados + ano1 + ".xlsx", self.ruta_matriculados + ano2 + ".xlsx",
+                self.ruta_matriculados_primer_curso + ano1 + ".xlsx",
+                self.ruta_matriculados_primer_curso + ano2 + ".xlsx"
+            ]
 
-        # Output generation
+            # Llamar a la función buscar_datos_codigos_snies para obtener los datos
+            datos_consolidados = self.gestor_xlsx.buscar_datos_codigos_snies(codigos_snies, rutas_archivos,
+                                                                             datos_consolidar)
+            print(datos_consolidados)
+            # Agregar los datos consolidados al programa académico
+            for fila in datos_consolidados:
+                programa_academico.agregar_consolidado(
+                    id_sexo=int(fila[1]),
+                    sexo=fila[2],
+                    ano=fila[3],
+                    semestre=fila[4],
+                    inscritos=int(fila[5]),
+                    admitidos=int(fila[6]),
+                    matriculados=int(fila[7]),
+                    matriculados_primer_semestre=int(fila[8]),
+                    graduados=int(fila[9])
+                )
+
+        # Generar archivo de salida
         opcion = int(input("Desea generar un archivo CSV (1), TXT (2) o JSON (3): "))
         if opcion == 1:
             gestor_aux = GestorCsv()
         elif opcion == 2:
-            gestor_aux = GestorTxt()
+            gestor_aux = GestorXlsx()
         else:
             gestor_aux = GestorJson()
         gestor_aux.crear_archivo(self.ruta_output, self.programas_academicos, self.etiquetas_columnas)
+
 
     def buscar_programas(self, flag, palabra_clave, id_comparacion):
         lista_programas = []
@@ -58,25 +94,25 @@ class SNIESController:
         try:
             # Filtrar programas por palabra clave y nivel de formación
             for programa in self.programas_academicos.values():
-                nombre = programa.get_programa_academico()
-                id_nivel = programa.get_id_nivel_de_formacion()
+                nombre = programa.programa_academico
+                id_nivel = programa.id_nivel_formacion
 
                 if palabra_clave in nombre and id_nivel == id_comparacion:
                     lista_programas.append(programa)
-                    print(f"{programa.get_codigo_snies_del_programa()};{programa.get_programa_academico()};"
-                          f"{programa.get_codigo_de_la_institucion()};{programa.get_institucion_de_educacion_superior_ies()};"
-                          f"{programa.get_metodologia()}")
+                    print(f"{programa.codigo_snies};{programa.programa_academico};"
+                          f"{programa.codigo_de_la_institucion};{programa.institucion_ies};"
+                          f"{programa.metodologia}")
 
             # Generar archivo si flag es True
             if flag:
-                opcion = int(input("Desea generar un archivo CSV (1), TXT (2) o JSON (3): "))
+                opcion = int(input("Desea generar un archivo CSV (1), XLSX (2) o JSON (3): "))
                 if opcion not in [1, 2, 3]:
                     raise ValueError("Opción no válida. Debe ser 1, 2 o 3.")
 
                 if opcion == 1:
                     gestor = GestorCsv()
                 elif opcion == 2:
-                    gestor = GestorTxt()
+                    gestor = GestorXlsx()
                 else:
                     gestor = GestorJson()
 
@@ -107,41 +143,41 @@ class SNIESController:
             neos_primer_ano = 0
             neos_segundo_ano = 0
 
-            id_metodologia = programa.get_id_metodologia()
+            id_metodologia = programa.id_metodologia
             if id_metodologia in [1, 3]:
                 for i in range(Settings.DATOS_ACADEM_DEMOGRAF):
-                    consolidado = programa.get_consolidado(i)
-                    suma_primer_ano += consolidado.get_matriculados()
+                    consolidado = programa.data.iloc[i]  # Asumiendo que consolidado es un registro en 'data'
+                    suma_primer_ano += consolidado["matriculados"]
 
                 for i in range(Settings.DATOS_ACADEM_DEMOGRAF):
-                    consolidado = programa.get_consolidado(i + 4)
-                    suma_segundo_ano += consolidado.get_matriculados()
+                    consolidado = programa.data.iloc[i + 4]
+                    suma_segundo_ano += consolidado["matriculados"]
 
             for i in range(Settings.DATOS_ACADEM_DEMOGRAF):
-                consolidado = programa.get_consolidado(i)
-                neos_primer_ano += consolidado.get_matriculados_primer_semestre()
+                consolidado = programa.data.iloc[i]
+                neos_primer_ano += consolidado["matriculadosPrimerSemestre"]
 
             for i in range(Settings.DATOS_ACADEM_DEMOGRAF):
-                consolidado = programa.get_consolidado(i + 4)
-                neos_segundo_ano += consolidado.get_matriculados_primer_semestre()
+                consolidado = programa.data.iloc[i + 4]
+                neos_segundo_ano += consolidado["matriculadosPrimerSemestre"]
 
             diferencia_neos = (
-                        (neos_segundo_ano - neos_primer_ano) * 100 / neos_primer_ano) if neos_primer_ano != 0 else 0
+                    (neos_segundo_ano - neos_primer_ano) * 100 / neos_primer_ano) if neos_primer_ano != 0 else 0
             matriz_etiquetas2.append([
-                str(programa.get_codigo_snies_del_programa()),
-                programa.get_programa_academico(),
-                programa.get_institucion_de_educacion_superior_ies(),
+                str(programa.codigo_snies),
+                programa.programa_academico,
+                programa.institucion_ies,
                 str(diferencia_neos)
             ])
 
             neos_sin_estudiantes = all(
-                programa.get_consolidado(i).get_matriculados_primer_semestre() == 0 for i in range(3)
+                programa.data.iloc(i)["matriculadosPrimerSemestre"] == 0 for i in range(3)
             ) or all(
-                programa.get_consolidado(i + 1).get_matriculados_primer_semestre() == 0 for i in range(3)
+                programa.data.iloc(i + 1)["matriculadosPrimerSemestre"] == 0 for i in range(3)
             )
             if neos_sin_estudiantes:
                 matriz_etiquetas3.append(
-                    [str(programa.get_codigo_snies_del_programa()), programa.get_programa_academico()])
+                    [str(programa.codigo_snies), programa.programa_academico])
 
         matriz_etiquetas1.append([str(suma_primer_ano), str(suma_segundo_ano)])
         matriz_final.extend(matriz_etiquetas1 + matriz_etiquetas2 + matriz_etiquetas3)
@@ -150,11 +186,11 @@ class SNIESController:
             print(";".join(fila))
 
         if flag:
-            opcion = int(input("Desea generar un archivo CSV (1), TXT (2) o JSON (3): "))
+            opcion = int(input("Desea generar un archivo CSV (1), XSLX (2) o JSON (3): "))
             if opcion == 1:
                 gestor = GestorCsv()
             elif opcion == 2:
-                gestor = GestorTxt()
+                gestor = GestorXlsx()
             else:
                 gestor = GestorJson()
 

@@ -1,14 +1,8 @@
-
+from SNIESController import SNIESController
+"ESTO HAY QUE CAMBIARLO POR LAS RUTAS EN EL SETTINGS"
 class View:
     def __init__(self):
-        ruta1 = "inputs/programas.csv"
-        ruta2 = "inputs/admitidos"
-        ruta3 = "inputs/graduados"
-        ruta4 = "inputs/inscritos"
-        ruta5 = "inputs/matriculados"
-        ruta6 = "inputs/matriculadosPrimerSemestre"
-        ruta7 = "outputs/"
-        self.controlador = SNIESController(ruta1, ruta2, ruta3, ruta4, ruta5, ruta6, ruta7)
+        self.controlador = SNIESController()
 
     @staticmethod
     def is_convertible_to_int(value):
@@ -97,13 +91,3 @@ class View:
         print("Programa cerrado con éxito!")
 
 
-def main():
-    menu = View()
-    if menu.mostrar_pantalla_bienvenido():
-        menu.mostrar_datos_extra()
-        menu.buscar_por_palabra_clave_y_formacion()
-    menu.salir()
-
-
-if __name__ == "__main__":
-    main()

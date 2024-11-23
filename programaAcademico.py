@@ -1,4 +1,6 @@
 import pandas as pd  # type: ignore
+from typing import List, Dict
+
 
 
 class ProgramaAcademico:
@@ -62,3 +64,36 @@ class ProgramaAcademico:
             "graduados": graduados
         }
         self.data = self.data.append(nuevo_consolidado, ignore_index=True)
+
+    def obtener_datos_csv(self) -> List:
+        """
+        Devuelve los datos del programa en un formato de lista para CSV.
+        """
+        return [
+            self.codigo_snies,
+            self.programa_academico,
+            self.nivel_formacion,
+            self.metodologia
+        ]
+
+    def obtener_datos_xlsx(self) -> Dict[str, any]:
+        """
+        Devuelve los datos del programa en un formato de diccionario para XLSX.
+        """
+        return {
+            "Código SNIES": self.codigo_snies,
+            "Programa Académico": self.programa_academico,
+            "Nivel de Formación": self.nivel_formacion,
+            "Metodología": self.metodologia
+        }
+
+    def obtener_datos_json(self) -> Dict[str, any]:
+        """
+        Devuelve los datos del programa en un formato de diccionario para JSON.
+        """
+        return {
+            "codigo_snies": self.codigo_snies,
+            "programa_academico": self.programa_academico,
+            "nivel_formacion": self.nivel_formacion,
+            "metodologia": self.metodologia
+        }

@@ -2,6 +2,9 @@ import openpyxl
 import json
 import csv
 from openpyxl import Workbook
+from programaAcademico import ProgramaAcademico
+
+
 
 from typing import List, Dict
 
@@ -120,7 +123,6 @@ class GestorJson(Gestor):
 
 
 class GestorXlsx(Gestor):
-    class GestorXlsx:
         TITULOS_PRIMER_ARCHIVO = [
             "CÓDIGO DE LA INSTITUCIÓN", "IES_PADRE", "INSTITUCIÓN DE EDUCACIÓN SUPERIOR (IES)", "TIPO IES",
             "ID SECTOR IES", "SECTOR IES", "ID CARACTER", "CARACTER IES",
@@ -134,27 +136,101 @@ class GestorXlsx(Gestor):
             "ID CINE CAMPO ESPECIFICO", "DESC CINE CAMPO ESPECIFICO",
             "ID CINE CODIGO DETALLADO", "DESC CINE CODIGO DETALLADO",
             "CÓDIGO DEL DEPARTAMENTO (PROGRAMA)", "DEPARTAMENTO DE OFERTA DEL PROGRAMA",
-            "CÓDIGO DEL MUNICIPIO (PROGRAMA)", "MUNICIPIO DE OFERTA DEL PROGRAMA",
-            "ID SEXO", "SEXO", "AÑO", "SEMESTRE", "ADMITIDOS"
+            "CÓDIGO DEL MUNICIPIO (PROGRAMA)", "MUNICIPIO DE OFERTA DEL PROGRAMA"
         ]
 
         TITULOS_SEGUNDO_ARCHIVO = [
-            "CÓDIGO SNIES DEL PROGRAMA", "ID SEXO", "SEXO", "AÑO", "SEMESTRE", "ADMITIDOS"
+            "CÓDIGO SNIES DEL PROGRAMA", "ID SEXO", "SEXO", "AÑO", "SEMESTRE"
         ]
 
         @staticmethod
+        def buscar_datos_codigos_snies(codigos_snies, rutas_archivos, datos_consolidar):
+            """
+            Busca datos específicos de TITULOS_SEGUNDO_ARCHIVO en varios archivos y retorna una lista consolidada.
+
+            Args:
+                codigos_snies (List[int]): Lista de códigos SNIES a buscar.
+                rutas_archivos (List[str]): Rutas de los archivos XLSX donde buscar.
+                titulos_segundo (List[str]): Títulos de las columnas de interés.
+
+            Returns:
+                List[List]: Lista de filas donde la primera columna es el código SNIES
+                            y las demás columnas son los datos buscados.
+            """
+            datos_consolidados = []
+
+            for ruta in rutas_archivos:
+                try:
+                    wb = openpyxl.load_workbook(ruta)
+                    sheet = wb.active
+
+                    # Identificar las posiciones de las columnas de interés
+                    encabezados = None
+                    for row in sheet.iter_rows(min_row=1, values_only=True):
+                        if "CÓDIGO SNIES DEL PROGRAMA" in row:
+                            encabezados = row
+                            break
+
+                    if not encabezados:
+                        raise ValueError(f"No se encontraron encabezados en el archivo: {ruta}")
+
+                    # Identificar las posiciones de las columnas de interés
+                    pos_codigo_snies = encabezados.index("CÓDIGO SNIES DEL PROGRAMA")
+                    posiciones_interes = [encabezados.index(titulo) for titulo in datos_consolidar if
+                                          titulo in encabezados]
+
+                    if not posiciones_interes:
+                        raise ValueError(f"No se encontraron columnas de interés en el archivo: {ruta}")
+
+                    # Leer las filas y buscar los códigos SNIES
+                    for row in sheet.iter_rows(min_row=sheet.min_row + 1, values_only=True):
+                        if row[pos_codigo_snies] in codigos_snies:
+                            fila = [row[pos_codigo_snies]] + [row[pos] for pos in posiciones_interes]
+                            datos_consolidados.append(fila)
+
+                except Exception as e:
+                    print(f"Error procesando el archivo {ruta}: {e}")
+
+            return datos_consolidados
+
+        @staticmethod
         def leer_codigos_snies(ruta):
-            """Lee los códigos SNIES desde un archivo XLSX."""
-            codigos_snies = []
+            codigos_snies = set()  # Usar un set para asegurarse de que los valores sean únicos
             try:
                 wb = openpyxl.load_workbook(ruta)
                 sheet = wb.active
-                for row in sheet.iter_rows(min_row=2, max_col=1, values_only=True):
-                    if row[0] is not None:
-                        codigos_snies.append(int(row[0]))
+
+                # Buscar la fila donde comienza el encabezado
+                fila_inicio_datos = None
+                encabezado_fila = None
+                for i, row in enumerate(sheet.iter_rows(min_row=1, values_only=True), start=1):
+                    if "CÓDIGO DE LA INSTITUCIÓN" in row:
+                        encabezado_fila = row
+                        fila_inicio_datos = i + 1  # La fila de datos empieza justo después del encabezado
+                        break
+
+                if encabezado_fila is None:
+                    raise ValueError("No se encontró la fila con el encabezado 'CÓDIGO DE LA INSTITUCIÓN'.")
+
+                # Obtener los encabezados de la fila encontrada
+                encabezados = list(encabezado_fila)
+
+                # Buscar la posición de la columna "CÓDIGO SNIES DEL PROGRAMA"
+                if "CÓDIGO SNIES DEL PROGRAMA" in encabezados:
+                    columna_codigos_snies = encabezados.index("CÓDIGO SNIES DEL PROGRAMA")
+                else:
+                    raise ValueError("No se encontró la columna 'CÓDIGO SNIES DEL PROGRAMA' en el archivo.")
+
+                # Leer los valores de la columna, asegurándose de que sean únicos
+                for row in sheet.iter_rows(min_row=fila_inicio_datos, values_only=True):
+                    if row[columna_codigos_snies] is not None:
+                        codigos_snies.add(int(row[columna_codigos_snies]))  # Agregar el código al set
+
             except Exception as e:
                 print(f"Error al leer el archivo: {e}")
-            return codigos_snies
+
+            # Convertir el set de nuevo a lista si se necesita un vector
+            return list(codigos_snies)
 
         @staticmethod
         def leer_archivo_primer(ruta, codigos_snies):
@@ -169,12 +245,25 @@ class GestorXlsx(Gestor):
         @staticmethod
         def _leer_archivo(ruta, codigos_snies, titulos_interes):
             """Lógica común para leer archivos XLSX."""
+            # Imprimir los códigos SNIES y los títulos de interés
+            print("Códigos SNIES:", codigos_snies)
+            print("Títulos de interés:", titulos_interes)
+
             matriz_resultado = []
             try:
                 wb = openpyxl.load_workbook(ruta)
                 sheet = wb.active
                 # Buscar las posiciones de las columnas de interés
-                encabezados = [cell.value for cell in next(sheet.iter_rows(min_row=1, max_row=1))]
+                encabezados = None
+                for row in sheet.iter_rows(min_row=1, values_only=True):
+                    # Buscar la fila que contiene el título "CÓDIGO DE LA INSTITUCIÓN"
+                    if "CÓDIGO DE LA INSTITUCIÓN" in row:
+                        encabezados = row
+                        break
+
+                if not encabezados:
+                    raise ValueError("No se encontró la fila con el título 'CÓDIGO DE LA INSTITUCIÓN'.")
+
                 posiciones_interes = [i for i, titulo in enumerate(encabezados) if titulo in titulos_interes]
 
                 if not posiciones_interes:
@@ -184,7 +273,8 @@ class GestorXlsx(Gestor):
                 matriz_resultado.append([encabezados[i] for i in posiciones_interes])
 
                 # Leer las filas
-                for row in sheet.iter_rows(min_row=2, values_only=True):
+                for row in sheet.iter_rows(min_row=sheet.min_row + 1,
+                                           values_only=True):  # Empezar desde la siguiente fila
                     if len(row) > 12 and row[12] != "Sin programa especifico":
                         codigo_snies = row[12]
                         if codigo_snies in codigos_snies:
@@ -196,52 +286,38 @@ class GestorXlsx(Gestor):
 
             return matriz_resultado
 
-    def crear_archivo(self, ruta: str, mapade_programas_academicos: Dict[int, 'ProgramaAcademico'], etiquetas_columnas: List[str]) -> bool:
 
-        wb = Workbook()
+        def crear_archivo(self, ruta: str, mapade_programas_academicos: Dict[int, 'ProgramaAcademico'],
+                          etiquetas_columnas: List[str]) -> bool:
+            wb = Workbook()
+            ws = wb.active
+            ws.append(etiquetas_columnas)
 
-        ws = wb.active
+            for programa in mapade_programas_academicos.values():
+                ws.append(
+                    programa.obtener_datos_xlsx())  # Suponiendo que `obtener_datos_xlsx` devuelve los datos adecuados
 
-        ws.append(etiquetas_columnas)
+            wb.save(ruta)
+            return True
 
-        for programa in mapade_programas_academicos.values():
+        def crear_archivo_buscados(self, ruta: str, programas_buscados: List['ProgramaAcademico'],
+                                   etiquetas_columnas: List[str]) -> bool:
+            wb = Workbook()
+            ws = wb.active
+            ws.append(etiquetas_columnas)
 
-            ws.append(programa.obtener_datos_xlsx())  # Suponiendo que `obtener_datos_xlsx` devuelve los datos adecuados
+            for programa in programas_buscados:
+                ws.append(programa.obtener_datos_xlsx())  # Al igual que antes
 
-        wb.save(ruta)
+            wb.save(ruta)
+            return True
 
-        return True
+        def crear_archivo_extra(self, ruta: str, datos_a_imprimir: List[List[str]]) -> bool:
+            wb = Workbook()
+            ws = wb.active
+            for fila in datos_a_imprimir:
+                ws.append(fila)
 
+            wb.save(ruta)
+            return True
 
-
-    def crear_archivo_buscados(self, ruta: str, programas_buscados: List['ProgramaAcademico'], etiquetas_columnas: List[str]) -> bool:
-
-        wb = Workbook()
-
-        ws = wb.active
-
-        ws.append(etiquetas_columnas)
-
-        for programa in programas_buscados:
-
-            ws.append(programa.obtener_datos_xlsx())  # Al igual que antes
-
-        wb.save(ruta)
-
-        return True
-
-
-
-    def crear_archivo_extra(self, ruta: str, datos_a_imprimir: List[List[str]]) -> bool:
-
-        wb = Workbook()
-
-        ws = wb.active
-
-        for fila in datos_a_imprimir:
-
-            ws.append(fila)
-
-        wb.save(ruta)
-
-        return True
