@@ -122,66 +122,6 @@ class GestorXlsx(Gestor):
             return None
 
 
-    def filtrado_palabras(self, archivos_extra_diccionario, controlador):
-
-        st.subheader("Se filtrará la información mediante una palabra clave")
-        palabra_clave = st.text_input("Programas por palabras clave")
-        anios_seleccionados = st.multiselect(
-            "Seleccione los años que desea analizar",
-            options=[2019, 2020, 2021, 2022, 2023],
-            default=[2020, 2021]
-        )
-        st.write("Años seleccionados:", anios_seleccionados)
-
-        # Botón para la búsqueda
-        if st.button("Primera búsqueda"):
-            try:
-                controlador.procesar_datos(anios_seleccionados[0], anios_seleccionados[1], palabra_clave, archivos_extra_diccionario)
-                st.session_state["busqueda_realizada"] = True
-
-            except FileNotFoundError as e:
-                st.warning(f"Error: {e}")
-
-            except Exception as e:
-                st.warning("Error. Puede ser que los archivos estén en el formato incorrecto.")
-
-        # Verificar si ya se realizó la búsqueda
-        if st.session_state.get("busqueda_realizada", False):
-            # Obtener el DataFrame
-            df = controlador.get_df()
-            df_unique = df.drop_duplicates(subset=["CÓDIGO SNIES DEL PROGRAMA"])
-
-            # Título de la aplicación
-            st.title("Selección de Programas para Análisis")
-
-            # Subtítulo
-            st.subheader("Seleccione los programas que desea incluir en el análisis")
-
-            # Lista de selección para los programas únicos
-            programas_seleccionados = st.multiselect(
-                "Programas disponibles:",
-                options=df_unique["PROGRAMA ACADÉMICO"].tolist(),
-                default=df_unique["PROGRAMA ACADÉMICO"].tolist()[:5]  # Selección por defecto de los primeros 5
-            )
-
-            st.write("Programas seleccionados:", programas_seleccionados)
-
-            # Filtrar el DataFrame por los programas seleccionados
-            if programas_seleccionados:
-                df_filtrado = df[df["PROGRAMA ACADÉMICO"].isin(programas_seleccionados)]
-                st.write("Datos filtrados:")
-                st.dataframe(df_filtrado)
-
-                # Botón para descargar el DataFrame filtrado
-                if st.button("Descargar datos filtrados"):
-                    csv = df_filtrado.to_csv(index=False).encode('utf-8')
-                    st.download_button(
-                        label="Descargar CSV",
-                        data=csv,
-                        file_name="programas_filtrados.csv",
-                        mime="text/csv"
-                    )
-
     def crear_archivo(self, ruta: str, dataframe: pd.DataFrame) -> bool:
         """
         Crea un archivo XLSX basado en un DataFrame.

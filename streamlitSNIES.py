@@ -3,8 +3,44 @@ import pandas as pd
 import os
 import matplotlib.pyplot as plt
 import re
+from view import View
+
 
 st.title("¡Bienvenido al **_SNIES Extractor_**! 🎈")
+st.write("_Siga las instrucciones a continuación para realizar el análisis y exportación de datos._")
+
+st.subheader("Parametrización Inicial")
+st.write("Asegúrese de que la carpeta SNIES_EXTRACTOR esté correctamente configurada con los archivos necesarios.")
+
+if st.button("Confirmar parametrización"):
+    st.success("Parametrización confirmada. Puedes continuar con el análisis.")
+
+st.subheader("Selección de parámetros")
+anio1 = st.text_input("Escriba el primer año de búsqueda:", value="2020")
+anio2 = st.text_input("Escriba el segundo año de búsqueda:", value="2021")
+
+view = View()
+
+valid_anio1, anio1_int = view.validar_entrada_anio(anio1)
+valid_anio2, anio2_int = view.validar_entrada_anio(anio2)
+
+if not (valid_anio1 and valid_anio2):
+    st.error("Ambos años deben ser valores enteros válidos.")
+else:
+    palabra_clave = st.text_input("Ingrese una palabra clave para filtrar los datos:", value="")
+
+    if not palabra_clave.strip():
+        st.error("Debe ingresar una palabra clave válida.")
+    else:
+        formato = st.selectbox("Seleccione el formato de archivo para exportar los datos:", ["XLSX", "CSV", "JSON"])
+
+        if st.button("Procesar y Exportar"):
+            view.procesar_datos(anio1_int, anio2_int, palabra_clave, formato)
+
+st.subheader("Cierre del programa")
+if st.button("Salir"):
+    st.success("Recuerde revisar la carpeta de outputs para los archivos exportados. ¡Programa cerrado con éxito!")
+
 
 st.write("_Siga las instrucciones a continuación para generar los análisis deseados_")
 
@@ -26,7 +62,7 @@ def extraer_anios_columnas(columnas):
 
 # Cargar archivos desde el sistema local
 if opcion_archivo == 'Desde el sistema local':
-    directorio_archivos = "C:/Users/mond_/OneDrive/Escritorio/SNIESCPP/proyecto-2-snies-extractor-4-beibis-1/outputs"
+    directorio_archivos = "C:/Users/Usuario/Documents/YAAA"
     archivos = [f for f in os.listdir(directorio_archivos) if f.endswith(('.csv', '.xlsx'))]
     archivo_seleccionado = st.selectbox("Selecciona un archivo", archivos)
 
