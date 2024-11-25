@@ -1,5 +1,8 @@
 from SNIESController import SNIESController
-"ESTO HAY QUE CAMBIARLO POR LAS RUTAS EN EL SETTINGS"
+from Settings import Settings
+from gestores import GestorXlsx, GestorCsv, GestorJson
+
+
 class View:
     def __init__(self):
         self.controlador = SNIESController()
@@ -36,7 +39,7 @@ class View:
         print("=========================================")
         print("Recuerde que para el correcto funcionamiento del programa tuvo que haber parametrizado")
         print("la carpeta SNIES_EXTRACTOR en el disco duro C:, con sus respectivas carpetas inputs y outputs.")
-        print("Además, todos los archivo CSV del SNIES deben estar correctamente ubicados.")
+        print("Además, todos los archivos CSV del SNIES deben estar correctamente ubicados.")
 
         user_answer = input("¿Ha parametrizado el programa correctamente? (Y/N): ").lower()
         if self.validar_entrada(user_answer, False):
@@ -44,12 +47,48 @@ class View:
             self.validar_entrada(anio1, True)
             anio2 = input("Escriba el segundo año de búsqueda: ")
             self.validar_entrada(anio2, True)
+
+            # Solicitar palabra clave
+            palabra_clave = input("Ingrese la palabra clave para filtrar los datos: ")
+            if not palabra_clave.strip():
+                print("Debe ingresar una palabra clave válida.")
+                return False
+
             anio1, anio2 = self.organizar_anios(anio1, anio2)
             print("Procesando datos ...")
-            self.controlador.procesar_datos_csv(anio1, anio2)
-            print("Datos procesados con éxito!")
-            return True
+
+            # Asegurarse de que los parámetros adicionales estén definidos antes de pasarlos
+            def_temp = self.controlador.procesar_datos(anio1, anio2, palabra_clave)
+
+            # Preguntar por el formato de salida
+            print("Seleccione el formato de archivo para exportar los datos:")
+            print("1. XLSX")
+            print("2. CSV")
+            print("3. JSON")
+            formato = input("Ingrese el número correspondiente al formato deseado: ").strip()
+
+            if formato == "1":
+                gestor = GestorXlsx()
+                ruta_salida = Settings.OUTPUTS_PATH_XLSX
+            elif formato == "2":
+                gestor = GestorCsv()
+                ruta_salida = Settings.OUTPUTS_PATH_CSV
+            elif formato == "3":
+                gestor = GestorJson()
+                ruta_salida = Settings.OUTPUTS_PATH_JSON
+            else:
+                print("Formato no válido. Operación cancelada.")
+                return False
+
+            if gestor.crear_archivo(ruta_salida, def_temp):
+                print(f"Datos exportados con éxito en el archivo: {ruta_salida}")
+                return True
+            else:
+                print("Error al exportar los datos.")
+                return False
+
         return False
+
 
     @staticmethod
     def validar_entrada_yn():
@@ -62,32 +101,10 @@ class View:
             else:
                 print("Entrada inválida. Intente nuevamente.")
 
-    def mostrar_datos_extra(self):
-        print("A continuación vamos a mostrar datos relevantes de los programas académicos seleccionados.")
-        print("¿Desea convertir los datos a un archivo CSV, TXT o JSON? (Y/N): ")
-        opcion_yn = self.validar_entrada_yn()
-        self.controlador.calcular_datos_extra(opcion_yn)
 
-    def buscar_por_palabra_clave_y_formacion(self):
-        opcion_yn = 'y'
-        while opcion_yn == 'y':
-            opcion_yn = input("¿Desea hacer una búsqueda por palabra clave del nombre del programa? (Y/N): ").lower()
-            if opcion_yn == 'y':
-                convertir_csv = input("¿Deseas convertir los datos del programa académico a un CSV? (Y/N): ").lower() == 'y'
-                palabra_clave = input("Escriba la palabra clave para buscar los programas por nombre: ")
-                print("Seleccione un nivel de formación para filtrar:")
-                print("1->Especialización Universitaria\n2->Maestría\n3->Doctorado\n4->Formación Técnica Profesional\n"
-                      "5->Tecnológico\n6->Universitario\n7->Especialización Técnico Profesional\n8->Especialización Tecnológica\n"
-                      "10->Especialización Médico Quirúrgica")
-                id_formacion_academica = int(input("Seleccione una opción: "))
-                while id_formacion_academica not in range(1, 11) or id_formacion_academica == 9:
-                    print("Seleccione una opción entre 1-10 excluyendo el 9.")
-                    id_formacion_academica = int(input("Seleccione una opción: "))
-                self.controlador.buscar_programas(convertir_csv, palabra_clave, id_formacion_academica)
 
     def salir(self):
         print("Cerrando programa...")
-        print("Recuerde revisar la carpeta de outputs para los archivos .csv exportados.")
+        print("Recuerde revisar la carpeta de outputs para los archivos exportados.")
         print("Programa cerrado con éxito!")
-
 

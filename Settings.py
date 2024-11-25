@@ -8,7 +8,9 @@ class Settings:
     INSCRITOS_FILE_PATH = BASE_PATH + "Inscritos "
     MATRICULADOS_FILE_PATH = BASE_PATH + "Matriculados "
     MATRICULADOS_PRIMER_CURSO_FILE_PATH = BASE_PATH + "Matriculados Primer Curso "
-    OUTPUTS_PATH = "C:/Users/Usuario/Documents/Proyecto/proyecto-3-yabastapoorfavor/OUTPUTS/"
+    OUTPUTS_PATH_XLSX = "C:/Users/Usuario/Documents/YAAA/datos_por_archivo.xlsx"
+    OUTPUTS_PATH_CSV = "C:/Users/Usuario/Documents/YAAA/datos_por_archivo.csv"
+    OUTPUTS_PATH_JSON = "C:/Users/Usuario/Documents/YAAA/datos_por_archivo.json"
 
 
 
